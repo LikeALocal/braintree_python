@@ -30,14 +30,15 @@ class CreditCard(Resource):
                 "country_name": "United States of America"
             },
             "options": {
-                "verify_card": True
+                "verify_card": True,
+                "verification_amount": "2.00"
             }
         })
 
         print(result.credit_card.token)
         print(result.credit_card.masked_number)
 
-    For more information on CreditCards, see https://developers.braintreepayments.com/ios+python/reference/request/credit-card/create
+    For more information on CreditCards, see https://developers.braintreepayments.com/reference/request/credit-card/create/python
 
     """
     class CardType(object):

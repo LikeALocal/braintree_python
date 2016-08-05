@@ -1,3 +1,36 @@
+## 3.29.2
+* Update links in docstrings
+* Remove Python 3.x-incompatible branch check
+* Remove references to SubMerchantAccount API
+
+## 3.29.1
+* Improve error handling around server timeouts
+
+## 3.29.0
+* Allow 'default_payment_method' option in Customer
+
+## 3.28.0
+* Expose resource collection ids
+* Add order id to refund
+* Enable 3DS pass thru
+
+## 3.27.0
+* Add method of revoking OAuth access tokens
+
+## 3.26.1
+* Correct issue with setup.py
+
+## 3.26.0
+* Add Transaction `update_details`
+* Support for Too Many Requests response codes
+* Add SubMerchantAccount object with associate objects
+* Allow more parameters to be sent on SubMerchantAccount create
+* Add SubMerchantAccount update
+* Handle validation errors for SubMerchantAccount create / update
+
+## 3.25.0
+* Add AccountUpdaterDailyReport webhook parsing
+
 ## 3.24.0
 * Add Verification#create
 * Add options to `submit_for_settlement` transaction flows

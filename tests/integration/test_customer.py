@@ -32,7 +32,7 @@ class TestCustomer(unittest.TestCase):
         self.assertEqual("614.555.5678", customer.fax)
         self.assertEqual("www.email.com", customer.website)
         self.assertNotEqual(None, customer.id)
-        self.assertNotEqual(None, re.search("\A\d{6,7}\Z", customer.id))
+        self.assertNotEqual(None, re.search("\A\d{6,}\Z", customer.id))
 
     def test_create_with_device_session_id_and_fraud_merchant_id(self):
         result = Customer.create({
@@ -49,6 +49,25 @@ class TestCustomer(unittest.TestCase):
                 "cvv": "100",
                 "device_session_id": "abc123",
                 "fraud_merchant_id": "456"
+            }
+        })
+
+        self.assertTrue(result.is_success)
+
+    def test_create_with_risk_data_security_parameters(self):
+        result = Customer.create({
+            "first_name": "Joe",
+            "last_name": "Brown",
+            "credit_card": {
+                "number": "4111111111111111",
+                "expiration_date": "05/2010",
+                "options": {
+                    "verify_card": True,
+                }
+            },
+            "risk_data": {
+                "customer_browser": "IE7",
+                "customer_ip": "192.168.0.1"
             }
         })
 
@@ -107,7 +126,7 @@ class TestCustomer(unittest.TestCase):
         self.assertEqual("614.555.5678", customer.fax)
         self.assertEqual("www.email.com", customer.website)
         self.assertNotEqual(None, customer.id)
-        self.assertNotEqual(None, re.search("\A\d{6,7}\Z", customer.id))
+        self.assertNotEqual(None, re.search("\A\d{6,}\Z", customer.id))
 
         found_customer = Customer.find(customer.id)
         self.assertEqual(u"G\u1f00t\u1F18s", found_customer.last_name)
@@ -230,6 +249,20 @@ class TestCustomer(unittest.TestCase):
 
         self.assertFalse(result.is_success)
         self.assertEquals(CreditCardVerification.Status.ProcessorDeclined, result.credit_card_verification.status)
+
+    def test_create_customer_and_verify_payment_method_with_verification_amount(self):
+        result = Customer.create({
+            "first_name": "Mike",
+            "last_name": "Jones",
+            "credit_card": {
+                "number": "4111111111111111",
+                "expiration_date": "05/2010",
+                "cvv": "100",
+                "options": {"verify_card": True, "verification_amount": "6.00"}
+            }
+        })
+
+        self.assertTrue(result.is_success)
 
     def test_create_customer_with_check_duplicate_payment_method(self):
         attributes = {
@@ -414,12 +447,9 @@ class TestCustomer(unittest.TestCase):
         self.assertEquals(customer.first_name, found_customer.first_name)
         self.assertEquals(customer.last_name, found_customer.last_name)
 
+    @raises_with_regexp(NotFoundError, "customer with id 'badid' not found")
     def test_find_with_invalid_customer(self):
-        try:
-            Customer.find("badid")
-            self.assertTrue(False)
-        except NotFoundError as e:
-            self.assertEquals("customer with id 'badid' not found", str(e))
+        Customer.find("badid")
 
     def test_update_with_valid_options(self):
         customer = Customer.create({
@@ -453,7 +483,76 @@ class TestCustomer(unittest.TestCase):
         self.assertEqual("614.555.5678", customer.fax)
         self.assertEqual("www.email.com", customer.website)
         self.assertNotEqual(None, customer.id)
-        self.assertNotEqual(None, re.search("\A\d{6,7}\Z", customer.id))
+        self.assertNotEqual(None, re.search("\A\d{6,}\Z", customer.id))
+
+    def test_update_with_default_payment_method(self):
+        customer = Customer.create({
+            "first_name": "Joe",
+            "last_name": "Brown",
+        }).customer
+
+        token1 = str(random.randint(1, 1000000))
+
+        payment_method1 = PaymentMethod.create({
+            "customer_id": customer.id,
+            "payment_method_nonce": Nonces.TransactableVisa,
+            "token": token1
+        }).payment_method
+
+        payment_method1 = PaymentMethod.find(payment_method1.token)
+        self.assertTrue(payment_method1.default)
+
+        token2 = str(random.randint(1, 1000000))
+
+        payment_method2 = PaymentMethod.create({
+            "customer_id": customer.id,
+            "payment_method_nonce": Nonces.TransactableMasterCard,
+            "token": token2
+        }).payment_method
+
+        result = Customer.update(customer.id, {
+            "default_payment_method_token": payment_method2.token
+        })
+
+        payment_method2 = PaymentMethod.find(payment_method2.token)
+        self.assertTrue(payment_method2.default)
+
+    def test_update_with_default_payment_method_in_options(self):
+        customer = Customer.create({
+            "first_name": "Joe",
+            "last_name": "Brown",
+        }).customer
+
+        token1 = str(random.randint(1, 1000000))
+
+        payment_method1 = PaymentMethod.create({
+            "customer_id": customer.id,
+            "payment_method_nonce": Nonces.TransactableVisa,
+            "token": token1
+        }).payment_method
+
+        payment_method1 = PaymentMethod.find(payment_method1.token)
+        self.assertTrue(payment_method1.default)
+
+        token2 = str(random.randint(1, 1000000))
+
+        payment_method2 = PaymentMethod.create({
+            "customer_id": customer.id,
+            "payment_method_nonce": Nonces.TransactableMasterCard,
+            "token": token2
+        }).payment_method
+
+        Customer.update(customer.id, {
+            "credit_card": {
+                "options": {
+                    "update_existing_token": token2,
+                    "make_default": True
+                    }
+                }
+            })
+
+        payment_method2 = PaymentMethod.find(payment_method2.token)
+        self.assertTrue(payment_method2.default)
 
     def test_update_with_nested_values(self):
         customer = Customer.create({
@@ -564,6 +663,34 @@ class TestCustomer(unittest.TestCase):
             result.errors.for_object("customer").for_object("paypal_account").on("base")[0].code,
             ErrorCodes.PayPalAccount.CannotVaultOneTimeUsePayPalAccount
         )
+
+    def test_update_with_nested_verification_amount(self):
+        customer = Customer.create({
+            "first_name": "Joe",
+            "last_name": "Brown",
+            "credit_card": {
+                "number": "4111111111111111",
+                "expiration_date": "10/10",
+                "billing_address": {
+                    "postal_code": "11111"
+                }
+            }
+        }).customer
+        credit_card = customer.credit_cards[0]
+        address = credit_card.billing_address
+
+        result = Customer.update(customer.id, {
+            "credit_card": {
+                "number": "4111111111111111",
+                "expiration_date": "10/10",
+                "options": {
+                    "verify_card": True,
+                    "verification_amount": "2.00"
+                },
+            }
+        })
+
+        self.assertTrue(result.is_success)
 
     def test_create_from_transparent_redirect_with_successful_result(self):
         tr_data = {

@@ -33,7 +33,7 @@ class TestTransaction(unittest.TestCase):
 
         self.assertTrue(result.is_success)
         transaction = result.transaction
-        self.assertNotEqual(None, re.search("\A\w{6}\Z", transaction.id))
+        self.assertNotEqual(None, re.search("\A\w{6,}\Z", transaction.id))
         self.assertEquals(Transaction.Type.Sale, transaction.type)
         self.assertEquals(Decimal(TransactionAmounts.Authorize), transaction.amount)
         self.assertEquals("411111", transaction.credit_card_details.bin)
@@ -52,7 +52,7 @@ class TestTransaction(unittest.TestCase):
 
         self.assertTrue(result.is_success)
         transaction = result.transaction
-        self.assertNotEqual(None, re.search("\A\w{6}\Z", transaction.id))
+        self.assertNotEqual(None, re.search("\A\w{6,}\Z", transaction.id))
         self.assertEquals(Transaction.Type.Sale, transaction.type)
         self.assertEquals(Decimal(TransactionAmounts.Authorize), transaction.amount)
         self.assertEquals("411111", transaction.credit_card_details.bin)
@@ -127,7 +127,7 @@ class TestTransaction(unittest.TestCase):
 
         self.assertTrue(result.is_success)
         transaction = result.transaction
-        self.assertNotEquals(None, re.search("\A\w{6}\Z", transaction.id))
+        self.assertNotEquals(None, re.search("\A\w{6,}\Z", transaction.id))
         self.assertEquals(Transaction.Type.Sale, transaction.type)
         self.assertEquals(Transaction.Status.Authorized, transaction.status)
         self.assertEquals(Decimal("100.00"), transaction.amount)
@@ -220,6 +220,24 @@ class TestTransaction(unittest.TestCase):
         self.assertEquals("411111******1111", transaction.credit_card_details.masked_number)
         self.assertEquals("411111******1111", transaction.vault_credit_card.masked_number)
 
+    def test_sale_with_venmo_merchant_data(self):
+        result = Transaction.sale({
+            "amount": Decimal(TransactionAmounts.Authorize),
+            "credit_card": {
+                "number": "4111111111111111",
+                "expiration_date": "05/2009"
+            },
+            "options": {
+                "venmo_merchant_data": {
+                    "venmo_merchant_public_id": "12345",
+                    "originating_transaction_id": "abc123",
+                    "originating_merchant_id": "xyz123",
+                }
+            }
+        })
+
+        self.assertTrue(result.is_success)
+
     def test_sale_with_custom_fields(self):
         result = Transaction.sale({
             "amount": TransactionAmounts.Authorize,
@@ -295,6 +313,22 @@ class TestTransaction(unittest.TestCase):
         transaction = result.transaction
         self.assertEquals("123 Fake St.", transaction.shipping_details.street_address)
         self.assertEquals(address.id, transaction.shipping_details.id)
+
+    def test_sale_with_risk_data_security_parameters(self):
+        result = Transaction.sale({
+            "amount": TransactionAmounts.Authorize,
+            "credit_card": {
+                "number": "4111111111111111",
+                "expiration_date": "05/2009"
+            },
+            "risk_data": {
+                "customer_browser": "IE7",
+                "customer_ip": "192.168.0.1"
+            }
+        })
+
+        self.assertTrue(result.is_success)
+        transaction = result.transaction
 
     def test_sale_with_billing_address_id(self):
         result = Customer.create({
@@ -909,6 +943,42 @@ class TestTransaction(unittest.TestCase):
         transaction = result.transaction
         self.assertEquals(True, transaction.recurring)
 
+    def test_create_can_set_transaction_source_flag_recurring(self):
+        result = Transaction.sale({
+            "amount": "100",
+            "customer": {
+                "first_name": "Adam",
+                "last_name": "Williams"
+            },
+            "credit_card": {
+                "number": "4111111111111111",
+                "expiration_date": "05/2009"
+            },
+            "transaction_source": "recurring"
+        })
+
+        self.assertTrue(result.is_success)
+        transaction = result.transaction
+        self.assertEquals(True, transaction.recurring)
+
+    def test_create_can_set_transaction_source_flag_moto(self):
+        result = Transaction.sale({
+            "amount": "100",
+            "customer": {
+                "first_name": "Adam",
+                "last_name": "Williams"
+            },
+            "credit_card": {
+                "number": "4111111111111111",
+                "expiration_date": "05/2009"
+            },
+            "transaction_source": "moto"
+        })
+
+        self.assertTrue(result.is_success)
+        transaction = result.transaction
+        self.assertEquals(False, transaction.recurring)
+
     def test_create_can_store_customer_and_credit_card_in_the_vault(self):
         result = Transaction.sale({
             "amount": "100",
@@ -927,9 +997,9 @@ class TestTransaction(unittest.TestCase):
 
         self.assertTrue(result.is_success)
         transaction = result.transaction
-        self.assertNotEqual(None, re.search("\A\d{6,7}\Z", transaction.customer_details.id))
+        self.assertNotEqual(None, re.search("\A\d{6,}\Z", transaction.customer_details.id))
         self.assertEquals(transaction.customer_details.id, transaction.vault_customer.id)
-        self.assertNotEqual(None, re.search("\A\w{4,5}\Z", transaction.credit_card_details.token))
+        self.assertNotEqual(None, re.search("\A\w{4,}\Z", transaction.credit_card_details.token))
         self.assertEquals(transaction.credit_card_details.token, transaction.vault_credit_card.token)
 
     def test_create_can_store_customer_and_credit_card_in_the_vault_on_success(self):
@@ -950,9 +1020,9 @@ class TestTransaction(unittest.TestCase):
 
         self.assertTrue(result.is_success)
         transaction = result.transaction
-        self.assertNotEqual(None, re.search("\A\d{6,7}\Z", transaction.customer_details.id))
+        self.assertNotEqual(None, re.search("\A\d{6,}\Z", transaction.customer_details.id))
         self.assertEquals(transaction.customer_details.id, transaction.vault_customer.id)
-        self.assertNotEqual(None, re.search("\A\w{4,5}\Z", transaction.credit_card_details.token))
+        self.assertNotEqual(None, re.search("\A\w{4,}\Z", transaction.credit_card_details.token))
         self.assertEquals(transaction.credit_card_details.token, transaction.vault_credit_card.token)
 
     def test_create_does_not_store_customer_and_credit_card_in_the_vault_on_failure(self):
@@ -1008,7 +1078,7 @@ class TestTransaction(unittest.TestCase):
 
         self.assertTrue(result.is_success)
         transaction = result.transaction
-        self.assertNotEquals(None, re.search("\A\d{6,7}\Z", transaction.customer_details.id))
+        self.assertNotEquals(None, re.search("\A\d{6,}\Z", transaction.customer_details.id))
         self.assertEquals(transaction.customer_details.id, transaction.vault_customer.id)
         credit_card = CreditCard.find(transaction.vault_credit_card.token)
         self.assertEquals(credit_card.billing_address.id, transaction.billing_details.id)
@@ -1053,7 +1123,7 @@ class TestTransaction(unittest.TestCase):
 
         self.assertTrue(result.is_success)
         transaction = result.transaction
-        self.assertNotEquals(None, re.search("\A\d{6,7}\Z", transaction.customer_details.id))
+        self.assertNotEquals(None, re.search("\A\d{6,}\Z", transaction.customer_details.id))
         self.assertEquals(transaction.customer_details.id, transaction.vault_customer.id)
         shipping_address = transaction.vault_customer.addresses[0]
         self.assertEquals("Carl", shipping_address.first_name)
@@ -1233,7 +1303,7 @@ class TestTransaction(unittest.TestCase):
 
         self.assertTrue(result.is_success)
         transaction = result.transaction
-        self.assertNotEquals(None, re.search("\A\w{6}\Z", transaction.id))
+        self.assertNotEquals(None, re.search("\A\w{6,}\Z", transaction.id))
         self.assertEquals(Transaction.Type.Credit, transaction.type)
         self.assertEquals(Decimal(TransactionAmounts.Authorize), transaction.amount)
         cc_details = transaction.credit_card_details
@@ -1336,12 +1406,9 @@ class TestTransaction(unittest.TestCase):
         found_transaction = Transaction.find(transaction.id)
         self.assertEquals(transaction.id, found_transaction.id)
 
+    @raises_with_regexp(NotFoundError, "transaction with id 'notreal' not found")
     def test_find_for_bad_transaction_raises_not_found_error(self):
-        try:
-            Transaction.find("notreal")
-            self.assertTrue(False)
-        except NotFoundError as e:
-            self.assertEquals("transaction with id 'notreal' not found", str(e))
+        Transaction.find("notreal")
 
     def test_void_with_successful_result(self):
         transaction = Transaction.sale({
@@ -1598,6 +1665,7 @@ class TestTransaction(unittest.TestCase):
         self.assertEquals("3334445555", submitted_transaction.descriptor.phone)
         self.assertEquals("ebay.com", submitted_transaction.descriptor.url)
 
+    @raises_with_regexp(KeyError, "'Invalid keys: invalid_param'")
     def test_submit_for_settlement_with_invalid_params(self):
         transaction = Transaction.sale({
             "amount": TransactionAmounts.Authorize,
@@ -1616,11 +1684,7 @@ class TestTransaction(unittest.TestCase):
             "invalid_param": "foo",
         }
 
-        try:
-            Transaction.submit_for_settlement(transaction.id, Decimal("900"), params)
-            self.assertTrue(False)
-        except KeyError as e:
-            self.assertEquals("'Invalid keys: invalid_param'", str(e))
+        Transaction.submit_for_settlement(transaction.id, Decimal("900"), params)
 
     def test_submit_for_settlement_with_validation_error(self):
         transaction = Transaction.sale({
@@ -1656,6 +1720,199 @@ class TestTransaction(unittest.TestCase):
         self.assertEquals(
             ErrorCodes.Transaction.SettlementAmountIsLessThanServiceFeeAmount,
             result.errors.for_object("transaction").on("amount")[0].code
+        )
+
+    def test_update_details_with_valid_params(self):
+        transaction = Transaction.sale({
+            "amount": "10.00",
+            "credit_card": {
+                "number": "4111111111111111",
+                "expiration_date": "05/2009"
+            },
+            "options": {
+                "submit_for_settlement": True
+            }
+        }).transaction
+
+        params = {
+            "amount" : "9.00",
+            "order_id": "123",
+            "descriptor": {
+                "name": "456*123456789012345678",
+                "phone": "3334445555",
+                "url": "ebay.com"
+            }
+        }
+
+        result = Transaction.update_details(transaction.id, params)
+        self.assertTrue(result.is_success)
+        self.assertEquals(Decimal("9.00"), result.transaction.amount)
+        self.assertEquals(Transaction.Status.SubmittedForSettlement, result.transaction.status)
+        self.assertEquals("123", result.transaction.order_id)
+        self.assertEquals("456*123456789012345678", result.transaction.descriptor.name)
+        self.assertEquals("3334445555", result.transaction.descriptor.phone)
+        self.assertEquals("ebay.com", result.transaction.descriptor.url)
+
+    @raises_with_regexp(KeyError, "'Invalid keys: invalid_key'")
+    def test_update_details_with_invalid_params(self):
+        transaction = Transaction.sale({
+            "amount": "10.00",
+            "credit_card": {
+                "number": "4111111111111111",
+                "expiration_date": "05/2009"
+            },
+            "options": {
+                "submit_for_settlement": True
+            },
+        }).transaction
+
+        params = {
+            "amount" : "9.00",
+            "invalid_key": "invalid_value",
+            "order_id": "123",
+            "descriptor": {
+                "name": "456*123456789012345678",
+                "phone": "3334445555",
+                "url": "ebay.com"
+            }
+        }
+
+        Transaction.update_details(transaction.id, params)
+
+    def test_update_details_with_invalid_order_id(self):
+        transaction = Transaction.sale({
+            "amount": "10.00",
+            "credit_card": {
+                "number": "4111111111111111",
+                "expiration_date": "05/2009"
+            },
+            "options": {
+                "submit_for_settlement": True
+            },
+        }).transaction
+
+        params = {
+            "amount" : "9.00",
+            "order_id": "A" * 256,
+            "descriptor": {
+                "name": "456*123456789012345678",
+                "phone": "3334445555",
+                "url": "ebay.com"
+            }
+        }
+
+        result = Transaction.update_details(transaction.id, params)
+        self.assertFalse(result.is_success)
+        self.assertEquals(
+            ErrorCodes.Transaction.OrderIdIsTooLong,
+            result.errors.for_object("transaction").on("order_id")[0].code
+        )
+
+    def test_update_details_with_invalid_descriptor(self):
+        transaction = Transaction.sale({
+            "amount": "10.00",
+            "credit_card": {
+                "number": "4111111111111111",
+                "expiration_date": "05/2009"
+            },
+            "options": {
+                "submit_for_settlement": True
+            },
+        }).transaction
+
+        params = {
+            "amount" : "9.00",
+            "order_id": "123",
+            "descriptor": {
+                "name": "invalid name",
+                "phone": "invalid phone",
+                "url": "12345678901234567890"
+            }
+        }
+
+        result = Transaction.update_details(transaction.id, params)
+        self.assertFalse(result.is_success)
+        self.assertEquals(
+            ErrorCodes.Descriptor.NameFormatIsInvalid,
+            result.errors.for_object("transaction").for_object("descriptor").on("name")[0].code
+        )
+        self.assertEquals(
+            ErrorCodes.Descriptor.PhoneFormatIsInvalid,
+            result.errors.for_object("transaction").for_object("descriptor").on("phone")[0].code
+        )
+        self.assertEquals(
+            ErrorCodes.Descriptor.UrlFormatIsInvalid,
+            result.errors.for_object("transaction").for_object("descriptor").on("url")[0].code
+        )
+
+    def test_update_details_with_invalid_amount(self):
+        transaction = Transaction.sale({
+            "amount": "10.00",
+            "credit_card": {
+                "number": "4111111111111111",
+                "expiration_date": "05/2009"
+            },
+            "options": {
+                "submit_for_settlement": True
+            },
+        }).transaction
+
+        params = {
+            "amount" : "999.00",
+            "order_id": "123",
+        }
+
+        result = Transaction.update_details(transaction.id, params)
+        self.assertFalse(result.is_success)
+        self.assertEquals(
+            ErrorCodes.Transaction.SettlementAmountIsTooLarge,
+            result.errors.for_object("transaction").on("amount")[0].code
+        )
+
+    def test_update_details_with_invalid_status(self):
+        transaction = Transaction.sale({
+            "amount": "10.00",
+            "credit_card": {
+                "number": "4111111111111111",
+                "expiration_date": "05/2009"
+            },
+        }).transaction
+
+        params = {
+            "amount" : "9.00",
+            "order_id": "123",
+        }
+
+        result = Transaction.update_details(transaction.id, params)
+        self.assertFalse(result.is_success)
+        self.assertEquals(
+            ErrorCodes.Transaction.CannotUpdateTransactionDetailsNotSubmittedForSettlement,
+            result.errors.for_object("transaction").on("base")[0].code
+        )
+
+    def test_update_details_with_invalid_processor(self):
+        transaction = Transaction.sale({
+            "amount": "10.00",
+            "merchant_account_id": TestHelper.fake_amex_direct_merchant_account_id,
+            "credit_card": {
+                "number": CreditCardNumbers.AmexPayWithPoints.Success,
+                "expiration_date": "05/2020"
+            },
+            "options": {
+                "submit_for_settlement": True
+            },
+        }).transaction
+
+        params = {
+            "amount" : "9.00",
+            "order_id": "123",
+        }
+
+        result = Transaction.update_details(transaction.id, params)
+        self.assertFalse(result.is_success)
+        self.assertEquals(
+            ErrorCodes.Transaction.ProcessorDoesNotSupportUpdatingTransactionDetails,
+            result.errors.for_object("transaction").on("base")[0].code
         )
 
     def test_status_history(self):
@@ -1725,6 +1982,24 @@ class TestTransaction(unittest.TestCase):
         self.assertEquals(
             ErrorCodes.Transaction.HasAlreadyBeenRefunded,
             result.errors.for_object("transaction").on("base")[0].code
+        )
+
+    def test_refund_with_options_params(self):
+        transaction = self.__create_transaction_to_refund()
+        options = {
+            "amount": Decimal("1.00"),
+            "order_id": "abcd"
+        }
+        result = Transaction.refund(transaction.id, options)
+
+        self.assertTrue(result.is_success)
+        self.assertEquals(
+            "abcd",
+            result.transaction.order_id
+        )
+        self.assertEquals(
+            Decimal("1.00"),
+            result.transaction.amount
         )
 
     def test_refund_returns_an_error_if_unsettled(self):
@@ -2183,6 +2458,114 @@ class TestTransaction(unittest.TestCase):
             ErrorCodes.Transaction.ThreeDSecureTransactionDataDoesntMatchVerify,
             result.errors.for_object("transaction").on("three_d_secure_token")[0].code
         )
+
+    def test_transaction_with_three_d_secure_pass_thru(self):
+        result = Transaction.sale({
+            "merchant_account_id": TestHelper.three_d_secure_merchant_account_id,
+            "amount": TransactionAmounts.Authorize,
+            "credit_card": {
+                "number": "4111111111111111",
+                "expiration_date": "05/2009"
+            },
+            "three_d_secure_pass_thru": {
+                "eci_flag": "02",
+                "cavv": "some-cavv",
+                "xid": "some-xid"
+            }
+        })
+
+        self.assertTrue(result.is_success)
+        self.assertEquals(Transaction.Status.Authorized, result.transaction.status)
+
+    def test_transaction_with_three_d_secure_pass_thru_with_invalid_processor_settings(self):
+        result = Transaction.sale({
+            "merchant_account_id": "adyen_ma",
+            "amount": TransactionAmounts.Authorize,
+            "credit_card": {
+                "number": "4111111111111111",
+                "expiration_date": "05/2009"
+            },
+            "three_d_secure_pass_thru": {
+                "eci_flag": "02",
+                "cavv": "some-cavv",
+                "xid": "some-xid"
+            }
+        })
+
+        self.assertFalse(result.is_success)
+        self.assertEquals(
+            ErrorCodes.Transaction.ThreeDSecureMerchantAccountDoesNotSupportCardType,
+            result.errors.for_object("transaction").on("merchant_account_id")[0].code
+        )
+
+    def test_transaction_with_three_d_secure_pass_thru_with_missing_eci_flag(self):
+        result = Transaction.sale({
+            "merchant_account_id": TestHelper.three_d_secure_merchant_account_id,
+            "amount": TransactionAmounts.Authorize,
+            "credit_card": {
+                "number": "4111111111111111",
+                "expiration_date": "05/2009"
+            },
+            "three_d_secure_pass_thru": {
+                "eci_flag": "",
+                "cavv": "some-cavv",
+                "xid": "some-xid"
+            }
+        })
+
+        self.assertFalse(result.is_success)
+        self.assertEquals(
+            ErrorCodes.Transaction.ThreeDSecureEciFlagIsRequired,
+            result.errors.for_object("transaction").for_object("three_d_secure_pass_thru").on("eci_flag")[0].code
+        )
+
+
+    def test_transaction_with_three_d_secure_pass_thru_with_missing_cavv_and_xid(self):
+        result = Transaction.sale({
+            "merchant_account_id": TestHelper.three_d_secure_merchant_account_id,
+            "amount": TransactionAmounts.Authorize,
+            "credit_card": {
+                "number": "4111111111111111",
+                "expiration_date": "05/2009"
+            },
+            "three_d_secure_pass_thru": {
+                "eci_flag": "06",
+                "cavv": "",
+                "xid": ""
+            }
+        })
+
+        self.assertFalse(result.is_success)
+        self.assertEquals(
+            ErrorCodes.Transaction.ThreeDSecureCavvIsRequired,
+            result.errors.for_object("transaction").for_object("three_d_secure_pass_thru").on("cavv")[0].code
+        )
+        self.assertEquals(
+            ErrorCodes.Transaction.ThreeDSecureXidIsRequired,
+            result.errors.for_object("transaction").for_object("three_d_secure_pass_thru").on("xid")[0].code
+        )
+
+    def test_transaction_with_three_d_secure_pass_thru_with_invalid_eci_flag(self):
+        result = Transaction.sale({
+            "merchant_account_id": TestHelper.three_d_secure_merchant_account_id,
+            "amount": TransactionAmounts.Authorize,
+            "credit_card": {
+                "number": "4111111111111111",
+                "expiration_date": "05/2009"
+            },
+            "three_d_secure_pass_thru": {
+                "eci_flag": "bad_eci_flag",
+                "cavv": "some-cavv",
+                "xid": "some-xid"
+            }
+        })
+
+        self.assertFalse(result.is_success)
+        self.assertEquals(
+            ErrorCodes.Transaction.ThreeDSecureEciFlagIsInvalid,
+            result.errors.for_object("transaction").for_object("three_d_secure_pass_thru").on("eci_flag")[0].code
+        )
+
 
     def test_sale_with_amex_rewards_succeeds(self):
         result = Transaction.sale({
@@ -2920,6 +3303,7 @@ class TestTransaction(unittest.TestCase):
         self.assertEquals("3334445555", submitted_transaction.descriptor.phone)
         self.assertEquals("ebay.com", submitted_transaction.descriptor.url)
 
+    @raises_with_regexp(KeyError, "'Invalid keys: invalid_param'")
     def test_submit_for_partial_settlement_with_invalid_params(self):
         transaction = Transaction.sale({
             "amount": TransactionAmounts.Authorize,
@@ -2938,11 +3322,7 @@ class TestTransaction(unittest.TestCase):
             "invalid_param": "foo",
         }
 
-        try:
-            Transaction.submit_for_partial_settlement(transaction.id, Decimal("900"), params)
-            self.assertTrue(False)
-        except KeyError as e:
-            self.assertEquals("'Invalid keys: invalid_param'", str(e))
+        Transaction.submit_for_partial_settlement(transaction.id, Decimal("900"), params)
 
     def test_transaction_facilitator(self):
         granting_gateway, credit_card = TestHelper.create_payment_method_grant_fixtures()

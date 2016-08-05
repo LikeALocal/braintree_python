@@ -81,7 +81,7 @@ class Transaction(Resource):
         print(result.transaction.amount)
         print(result.transaction.order_id)
 
-    For more information on Transactions, see https://developers.braintreepayments.com/ios+python/reference/request/transaction/sale
+    For more information on Transactions, see https://developers.braintreepayments.com/reference/request/transaction/sale/python
 
     """
 
@@ -277,7 +277,7 @@ class Transaction(Resource):
 
 
     @staticmethod
-    def refund(transaction_id, amount=None):
+    def refund(transaction_id, amount_or_options=None):
         """
         Refunds an existing transaction.
 
@@ -287,7 +287,7 @@ class Transaction(Resource):
 
         """
 
-        return Configuration.gateway().transaction.refund(transaction_id, amount)
+        return Configuration.gateway().transaction.refund(transaction_id, amount_or_options)
 
 
     @staticmethod
@@ -347,6 +347,27 @@ class Transaction(Resource):
         """
 
         return Configuration.gateway().transaction.submit_for_settlement(transaction_id, amount, params)
+
+    @staticmethod
+    def update_details(transaction_id, params={}):
+        """
+        Updates exisiting details for transaction submtted_for_settlement.
+
+        Requires the transaction id::
+
+            result = braintree.Transaction.update_details("my_transaction_id", {
+                "amount": "100.00",
+                "order_id": "123",
+                "descriptor": {
+                    "name": "123*123456789012345678",
+                    "phone": "3334445555",
+                    "url": "url.com"
+                }
+            )
+
+        """
+
+        return Configuration.gateway().transaction.update_details(transaction_id, params)
 
     @staticmethod
     def tr_data_for_credit(tr_data, redirect_url):
@@ -421,10 +442,15 @@ class Transaction(Resource):
     def create_signature():
         return [
             "amount", "customer_id", "device_session_id", "fraud_merchant_id", "merchant_account_id", "order_id", "channel",
-            "payment_method_token", "purchase_order_number", "recurring", "shipping_address_id",
+            "payment_method_token", "purchase_order_number", "recurring", "transaction_source", "shipping_address_id",
             "device_data", "billing_address_id", "payment_method_nonce", "tax_amount",
             "shared_payment_method_token", "shared_customer_id", "shared_billing_address_id", "shared_shipping_address_id",
             "tax_exempt", "three_d_secure_token", "type", "venmo_sdk_payment_method_code", "service_fee_amount",
+            {
+                "risk_data": [
+                    "customer_browser", "customer_ip"
+                ]
+            },
             {
                 "credit_card": [
                     "token", "cardholder_name", "cvv", "expiration_date", "expiration_month", "expiration_year", "number"
@@ -450,6 +476,13 @@ class Transaction(Resource):
                 ]
             },
             {
+                "three_d_secure_pass_thru": [
+                    "eci_flag",
+                    "cavv",
+                    "xid"
+                ]
+            },
+            {
                 "options": [
                     "add_billing_address_to_payment_method",
                     "hold_in_escrow",
@@ -469,14 +502,17 @@ class Transaction(Resource):
                         "three_d_secure": [
                             "required"
                         ],
-                    },
-                    {
                         "amex_rewards": [
                             "request_id",
                             "points",
                             "currency_amount",
                             "currency_iso_code"
-                        ]
+                        ],
+                        "venmo_merchant_data": [
+                            "venmo_merchant_public_id",
+                            "originating_transaction_id",
+                            "originating_merchant_id"
+                        ],
                     },
                 ]
             },
@@ -498,6 +534,14 @@ class Transaction(Resource):
     @staticmethod
     def submit_for_settlement_signature():
         return ["order_id", {"descriptor": ["name", "phone", "url"]}]
+
+    @staticmethod
+    def update_details_signature():
+        return ["amount", "order_id", {"descriptor": ["name", "phone", "url"]}]
+
+    @staticmethod
+    def refund_signature():
+        return ["amount", "order_id"]
 
     @staticmethod
     def submit_for_partial_settlement(transaction_id, amount, params={}):

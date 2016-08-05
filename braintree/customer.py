@@ -51,7 +51,8 @@ class Customer(Resource):
                     "country_name": "United States of America"
                 },
                 "options": {
-                    "verify_card": True
+                    "verify_card": True,
+                    "verification_amount": "2.00"
                 }
             },
             "custom_fields": {
@@ -62,7 +63,7 @@ class Customer(Resource):
         print(result.customer.id)
         print(result.customer.first_name)
 
-    For more information on Customers, see https://developers.braintreepayments.com/ios+python/reference/request/customer/create
+    For more information on Customers, see https://developers.braintreepayments.com/reference/request/customer/create/python
 
     """
 
@@ -177,6 +178,7 @@ class Customer(Resource):
     def create_signature():
         return [
             "company", "email", "fax", "first_name", "id", "last_name", "phone", "website", "device_data", "device_session_id", "fraud_merchant_id", "payment_method_nonce",
+            {"risk_data": ["customer_browser", "customer_ip"]},
             {"credit_card": CreditCard.create_signature()},
             {"custom_fields": ["__any_key__"]}
         ]
@@ -184,7 +186,7 @@ class Customer(Resource):
     @staticmethod
     def update_signature():
         return [
-            "company", "email", "fax", "first_name", "id", "last_name", "phone", "website", "device_data", "device_session_id", "fraud_merchant_id", "payment_method_nonce",
+            "company", "email", "fax", "first_name", "id", "last_name", "phone", "website", "device_data", "device_session_id", "fraud_merchant_id", "payment_method_nonce", "default_payment_method_token",
             {"credit_card": CreditCard.signature("update_via_customer")},
             {"custom_fields": ["__any_key__"]}
         ]

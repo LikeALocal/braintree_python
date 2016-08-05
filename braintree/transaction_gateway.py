@@ -54,14 +54,20 @@ class TransactionGateway(object):
         elif "api_error_response" in response:
             return ErrorResult(self.gateway, response["api_error_response"])
 
-    def refund(self, transaction_id, amount=None):
+    def refund(self, transaction_id, amount_or_options=None):
         """
         Refunds an existing transaction. It expects a transaction_id. ::
 
             result = braintree.Transaction.refund("my_transaction_id")
         """
-
-        response = self.config.http().post(self.config.base_merchant_path() + "/transactions/" + transaction_id + "/refund", {"transaction": {"amount": amount}})
+        if isinstance(amount_or_options, dict):
+            options = amount_or_options
+        else:
+            options = {
+                "amount": amount_or_options
+            }
+        Resource.verify_keys(options, Transaction.refund_signature())
+        response = self.config.http().post(self.config.base_merchant_path() + "/transactions/" + transaction_id + "/refund", {"transaction": options})
         if "transaction" in response:
             return SuccessfulResult({"transaction": Transaction(self.gateway, response["transaction"])})
         elif "api_error_response" in response:
@@ -94,6 +100,15 @@ class TransactionGateway(object):
         transaction_params.update(params)
         response = self.config.http().put(self.config.base_merchant_path() + "/transactions/" + transaction_id + "/submit_for_settlement",
                 {"transaction": transaction_params})
+        if "transaction" in response:
+            return SuccessfulResult({"transaction": Transaction(self.gateway, response["transaction"])})
+        elif "api_error_response" in response:
+            return ErrorResult(self.gateway, response["api_error_response"])
+
+    def update_details(self, transaction_id, params={}):
+        Resource.verify_keys(params, Transaction.update_details_signature())
+        response = self.config.http().put(self.config.base_merchant_path() + "/transactions/" + transaction_id + "/update_details",
+                {"transaction": params})
         if "transaction" in response:
             return SuccessfulResult({"transaction": Transaction(self.gateway, response["transaction"])})
         elif "api_error_response" in response:
